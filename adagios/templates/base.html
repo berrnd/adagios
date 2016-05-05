@@ -66,8 +66,11 @@
     {% block left_sidebar %}
     <div class="pull-left visible-desktop container-fluid well" id="left_sidebar">
       <ul class="nav nav-list">
-        <li class="nav-header" style="color: black;">{% trans "Shortcuts" %}</li>
+        <li class="nav-header" style="color: black;">{% trans "Dashboards" %}</li>
         <li{% if urlname == 'adagios.status.views.status_index' %} class="active"{% endif %}><a href="{% url status.views.status_index %}">{% trans "Status Overview" %} </a></li>
+		<li{% if urlname == 'adagios.status.views.dashboard' %} class="active"{% endif %}><a href="{% url status.views.dashboard %}">{% trans "Dashboard" %}</a></li>
+		
+		<li class="nav-header" style="color: black;">{% trans "Overview" %}</li>
         <li{% if urlname == 'adagios.status.views.problems' and 'unhandled' in request.GET %} class="active"{% endif %}>
           <a {% if num_problems_unhandled %}{% endif %} href="{% url status.views.problems %}?unhandled">{% trans "Open Problems" %} {% if num_problems_unhandled %}<span class="pull-right">({{ num_problems_unhandled }})</span>{% endif %}</a>
         </li>
@@ -78,7 +81,7 @@
         <li{% if urlname == 'adagios.status.views.services' %} class="active"{% endif %}><a href="{% url status.views.services %}">{% trans "Services" %} </a></li>
         <li{% if urlname == 'adagios.status.views.contact_list' %} class="active"{% endif %}><a href="{% url status.views.contact_list %}">{% trans "Contacts" %}</a></li>
         <li{% if urlname == 'adagios.status.views.network_parents' %} class="active"{% endif %}><a href="{% url status.views.network_parents %}">{% trans "Network Parents" %} </a></li>
-        <li{% if urlname == 'objectbrowser' %} class="active"{% endif %}><a href="{% url objectbrowser.views.list_object_types %}">{% trans "Configuration" %}</a></li>
+        <!--<li{% if urlname == 'objectbrowser' %} class="active"{% endif %}><a href="{% url objectbrowser.views.list_object_types %}">{% trans "Configuration" %}</a></li>-->
         
         <li class="nav-header" style="color: black;">{% trans "Reports" %}</li>
         
@@ -93,13 +96,13 @@
         <li{% if urlname == 'adagios.status.views.status_servicegroups' %} class="active"{% endif %}><a href="{% url status.views.status_servicegroups %}">{% trans "Servicegroups" %}</a></li>
         <li{% if urlname == 'adagios.status.views.contactgroups' %} class="active"{% endif %}><a href="{% url status.views.contactgroups %}">{% trans "Contactgroups" %}</a></li>
         
-        <li class="nav-header" style="color: black;">{% trans "Experimental" %}</li>
+        <!--<li class="nav-header" style="color: black;">{% trans "Experimental" %}</li>
         
         <li{% if urlname == 'adagios.status.views.map_view' %} class="active"{% endif %}><a href="{% url status.views.map_view %}">{% trans "Map" %}</a></li>
         <li{% if urlname == 'adagios.status.views.perfdata' %} class="active"{% endif %}><a href="{% url status.views.perfdata %}">{% trans "Performance Data 1" %}</a></li>
         <li{% if urlname == 'adagios.status.views.perfdata2' %} class="active"{% endif %}><a href="{% url status.views.perfdata2 %}">{% trans "Performance Data 2" %}</a></li>
         <li{% if urlname == 'adagios.bi.views.index' %} class="active"{% endif %}><a href="{% url bi.views.index %}">{% trans "Business Intelligence" %}</a></li>
-        <li{% if urlname == 'adagios.status.views.dashboard' %} class="active"{% endif %}><a href="{% url status.views.dashboard %}">{% trans "Dashboard" %}</a></li>
+        <li{% if urlname == 'adagios.status.views.dashboard' %} class="active"{% endif %}><a href="{% url status.views.dashboard %}">{% trans "Dashboard" %}</a></li>-->
       </ul>
     </div>
     {% endblock left_sidebar %}
@@ -145,14 +148,14 @@
             {% block bottom_left %}
             {% endblock bottom_left %}
         </div>
-        <div class="pull-left" id="glyphicons-attribution">
+        <!--<div class="pull-left" id="glyphicons-attribution">
           <p>Icons from <a href="http://glyphicons.com">Glyphicons Free</a>, licensed under <a href="http://creativecommons.org/licenses/by/3.0/">CC BY 3.0</a>.</p>
         </div>
         <div class="pull-right" id="make_a_wish" >
             <label class=hide for="id_wish_input"></label>
             <input id=id_wish_input type="text" class="input-large" placeholder="I wish this page could..." onclick='$("#wish_modal").modal("show");'/>
             <button class="btn btn-" style="margin-bottom: 9px;" onclick='$("#wish_modal").modal("show");'>{% trans "Make a wish" %}</button>
-        </div>
+        </div>-->
     </div>
 {% endblock page_footer %}
 
