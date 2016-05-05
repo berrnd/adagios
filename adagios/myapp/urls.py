@@ -15,10 +15,10 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from django.conf.urls.defaults import *
+from django.conf.urls import url, patterns
 
 urlpatterns = patterns('adagios',
-                      (r'^/?$', 'myapp.views.hello_world'),
-                      (r'^/url1?$', 'myapp.views.hello_world'),
-                      (r'^/url2?$', 'myapp.views.hello_world'),
+                      url(r'^/?$', 'myapp.views.hello_world'),
+                      url(r'^/url1?$', 'myapp.views.hello_world'),
+                      url(r'^/url2?$', 'myapp.views.hello_world'),
                        )

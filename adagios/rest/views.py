@@ -16,10 +16,10 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 # Create your views here.
-from django.shortcuts import render_to_response, redirect
+from django.shortcuts import render_to_response, redirect, render
 from django.core import serializers
 from django.http import HttpResponse, HttpResponseServerError
-from django.utils import simplejson
+import json
 #from django.core.context_processors import csrf
 from django.views.decorators.csrf import csrf_exempt
 from django.template import RequestContext
@@ -93,23 +93,23 @@ def handle_request(request, module_name, module_path, attribute, format):
         raise BaseException(_("Unsupported operation: %s") % (request.method, ))
     # Everything below is just about formatting the results
     if format == 'json':
-        result = simplejson.dumps(
+        result = json.dumps(
             result, ensure_ascii=False, sort_keys=True, skipkeys=True, indent=4)
-        mimetype = 'application/javascript'
+        content_type = 'application/javascript'
     elif format == 'xml':
             # TODO: For some reason Ubuntu does not have this module. Where is
             # it? Should we use lxml instead ?
         import xml.marshal.generic
         result = xml.marshal.generic.dumps(result)
-        mimetype = 'application/xml'
+        content_type = 'application/xml'
     elif format == 'txt':
         result = str(result)
-        mimetype = 'text/plain'
+        content_type = 'text/plain'
     else:
         raise BaseException(
             _("Unsupported format: '%s'. Valid formats: json xml txt") %
             format)
-    return HttpResponse(result, mimetype=mimetype)
+    return HttpResponse(result, content_type=content_type)
 
 
 @adagios_decorator
@@ -200,7 +200,9 @@ def javascript(request, module_name, module_path):
         args, varargs, varkw, defaults = argspec
     c['functions'] = members
 
-    return render_to_response('javascript.html', c, mimetype="text/javascript", context_instance=RequestContext(request))
+    return render(request, 'javascript.html', c,
+                  content_type="text/javascript",
+                  context_instance=RequestContext(request))
 
 
 class CallFunctionForm(forms.Form):

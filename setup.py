@@ -90,8 +90,7 @@ setup(name=app_name,
     url='https://adagios.opensource.is/',
     packages=['adagios'],
     package_data={'adagios': data_files},
-    data_files=[('/etc/adagios/', ['adagios/etc/adagios/adagios.conf'])],
-    requires=['django', 'pynag'],
+    install_requires=['django>=1.4,<1.7', 'pynag'],
     cmdclass=dict(build=adagios_build),
 
 )

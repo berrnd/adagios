@@ -15,7 +15,7 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from django.conf.urls.defaults import *
+from django.conf.urls import url, patterns
 
 
 urlpatterns = patterns('adagios',
@@ -27,7 +27,7 @@ urlpatterns = patterns('adagios',
 
 
     url(r'^/edit/(?P<object_id>.+?)?$', 'objectbrowser.views.edit_object', name="edit_object"),
-
+    url(r'^/import/?$', 'objectbrowser.views.import_objects'),
     url(r'^/edit/?$', 'objectbrowser.views.edit_object'),
     url(r'^/copy_and_edit/(?P<object_id>.+?)?$', 'objectbrowser.views.copy_and_edit_object'),
 

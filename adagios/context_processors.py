@@ -21,6 +21,7 @@ import getpass
 
 from adagios import notifications, settings, add_plugin
 from adagios.misc.rest import add_notification, clear_notification
+from adagios.daemon import Daemon
 
 import pynag.Model.EventHandlers
 import pynag.Parsers
@@ -38,6 +39,8 @@ from django.utils.translation import ugettext as _
 def on_page_load(request):
     """ Collection of actions that take place every page load """
     results = {}
+    update_global_variables()
+
     for k, v in reload_configfile(request).items():
         results[k] = v
     for k, v in get_httpuser(request).items():
@@ -85,6 +88,11 @@ def on_page_load(request):
     return results
 
 
+def update_global_variables():
+    """Updates all required global variables."""
+    pynag.Model.cfg_file = adagios.settings.nagios_config
+
+
 def get_current_time(request):
     """ Make current timestamp available to templates
     """
@@ -105,7 +113,7 @@ def get_serverside_includes(request):
         result['ssi_headers'] = []
         result['ssi_footers'] = []
         dirname = adagios.settings.serverside_includes
-        current_url = resolve_urlname(request)
+        current_url = resolve_urlname(request).get('urlname')
         if not dirname:
             return {}
         if not os.path.isdir(dirname):
@@ -188,9 +196,9 @@ def get_tagged_comments(request):
         if tagged_comments > 0:
             return {'tagged_comments': tagged_comments}
         else:
-            return {}
+            return {'tagged_comments': ''}
     except Exception:
-        return {}
+        return {'tagged_comments': ''}
 
 
 def get_unhandled_problems(request):
@@ -285,11 +293,8 @@ def check_destination_directory(request):
 def check_nagios_running(request):
     """ Notify user if nagios is not running """
     try:
-        if pynag.Model.config is None:
-            pynag.Model.config = pynag.Parsers.config(
-                adagios.settings.nagios_config)
-        nagios_pid = pynag.Model.config._get_pid()
-        return {"nagios_running": (nagios_pid is not None)}
+        d = Daemon()
+        return {"nagios_running": (d.running())}
     except Exception:
         return {}
 
@@ -338,10 +343,7 @@ def reload_configfile(request):
     """ Load the configfile from settings.adagios_configfile and put its content in adagios.settings. """
     try:
         clear_notification("configfile")
-        locals = {}
-        execfile(settings.adagios_configfile, globals(), locals)
-        for k, v in locals.items():
-            settings.__dict__[k] = v
+        settings.reload_configfile()
     except Exception, e:
         add_notification(
             level="warning", message=str(e), notification_id="configfile")

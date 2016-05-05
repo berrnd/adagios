@@ -31,7 +31,7 @@ import mimetypes
 
 import pynag.Model
 import pynag.Utils
-import pynag.Control
+import adagios.daemon
 import pynag.Model.EventHandlers
 import pynag.Utils
 import os.path
@@ -182,9 +182,7 @@ def nagios_service(request):
     c = {}
     c['errors'] = []
     c['messages'] = []
-    nagios_bin = adagios.settings.nagios_binary
-    nagios_init = adagios.settings.nagios_init_script
-    nagios_cfg = adagios.settings.nagios_config
+
     if request.method == 'GET':
         form = forms.NagiosServiceForm(initial=request.GET)
     else:
@@ -194,20 +192,20 @@ def nagios_service(request):
             c['stdout'] = form.stdout
             c['stderr'] = form.stderr
             c['command'] = form.command
+            c['exit_code'] = form.exit_code
 
             for i in form.stdout.splitlines():
                 if i.strip().startswith('Error:'):
                     c['errors'].append(i)
     c['form'] = form
-    service = pynag.Control.daemon(
-        nagios_bin=nagios_bin, nagios_cfg=nagios_cfg, nagios_init=nagios_init)
-    c['status'] = s = service.status()
-    if s == 0:
+    daemon = adagios.daemon.Daemon()
+    c['nagios_bin'] = daemon.nagios_bin
+    if daemon.running():
+        c['status'] = 0
         c['friendly_status'] = "running"
-    elif s == 1:
-        c['friendly_status'] = "not running"
     else:
-        c['friendly_status'] = 'unknown (exit status %s)' % (s, )
+        c['status'] = 1
+        c['friendly_status'] = "not running"
     needs_reload = pynag.Model.config.needs_reload()
     c['needs_reload'] = needs_reload
     return render_to_response('nagios_service.html', c, context_instance=RequestContext(request))
@@ -328,7 +326,7 @@ def icons(request, image_name=None):
             file_extension = image_name.split('.').pop()
             mime_type = mimetypes.types_map.get(file_extension)
             fsock = open("%s/%s" % (image_path, image_name,))
-            return HttpResponse(fsock, mimetype=mime_type)
+            return HttpResponse(fsock, content_type=mime_type)
         else:
             raise Exception(_("Not allowed to see this image"))
 
@@ -351,8 +349,7 @@ def mail(request):
         services = request.GET.getlist(
             'service') or request.GET.getlist('service[]')
         if not services and not hosts:
-            c['form'].services = adagios.status.utils.get_services(
-                request, host_name='localhost')
+            c['form'].services = adagios.status.utils.get_services(request, host_name='localhost')
     elif request.method == 'POST':
         c['form'] = forms.SendEmailForm(remote_user, data=request.POST)
         services = request.POST.getlist('service') or request.POST.getlist('service[]')
@@ -375,10 +372,8 @@ def mail(request):
     for i in services:
         try:
             host_name, service_description = i.split('/', 1)
-            service = adagios.status.utils.get_services(request,
-                                                        host_name=host_name,
-                                                        service_description=service_description
-                                                        )
+            service = adagios.status.utils.get_services(
+                request, host_name=host_name, service_description=service_description)
             if not service:
                 c['errors'].append(
                     _('Service "%s"" not found. Maybe a typo or you do not have access to it ?') % i)

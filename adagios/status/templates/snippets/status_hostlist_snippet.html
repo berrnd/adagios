@@ -1,4 +1,5 @@
 <!-- snippet status_hostlist_snippet.html starts -->
+{% load url from future %}
 {% load adagiostags %}
 {% load i18n %}
 
@@ -41,7 +42,7 @@
                 </a>
             </td>
             <td>
-                <a id="{{ row.name }}" href="{% url status.views.detail %}?host_name={{ row.name }}">
+                <a id="{{ row.name }}" href="{% url 'status.views.detail' %}?host_name={{ row.name }}">
                     {{ row.name }}
                 </a>
             </td>
@@ -68,7 +69,11 @@
                 {% if row.state  == 0 %}
                 <td class="alert alert-success">{% trans "Host UP" %}</td>
                 {% else %}
-                <td class="alert alert-danger">{% if row.childs %}{% trans "Network outage" %} {% else %}{% trans "Host Down" %} {% endif %}</td>
+                    {% if row.state  == 3 %}
+                        <td class="alert alert-success">{% trans "Pending" %}</td>
+                    {% else %}
+                        <td class="alert alert-danger">{% if row.childs %}{% trans "Network outage" %} {% else %}{% trans "Host Down" %} {% endif %}</td>
+                    {% endif %}
                 {% endif %}
             {% endif %}
             <td>
@@ -86,7 +91,7 @@
                 <td colspan=5>
                     <div style="margin-left: 10px;" class="circle state_{{ i.1 }}"></div>
                     <span>
-                    <a href="{% url status.views.detail %}?host_name={{ row.name }}&service_description={{ i.0 }}">{{i.0 }}</a> - {{ i.3 }}
+                    <a href="{% url 'status.views.detail' %}?host_name={{ row.name }}&service_description={{ i.0 }}">{{i.0 }}</a> - {{ i.3 }}
                     </span>
                 </td>
             </tr>
@@ -94,5 +99,12 @@
     {% endfor %}
     </tbody>
 </table>
+{% if hosts|length == settings.livestatus_limit %}
+    {% blocktrans with length=hosts|length %}Results limited to {{ length }} hosts{% endblocktrans %}
+    <a href="{{ request.get_full_path }}?&limit=0">{% blocktrans %}See all{% endblocktrans %}</a>
+
+{% else %}
+    {% blocktrans with length=hosts|length %}{{ length }} hosts found.{% endblocktrans %}
+{% endif %}
 
 <!-- snippet status_hostlist_snippet.html ends -->

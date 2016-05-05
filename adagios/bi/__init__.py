@@ -21,12 +21,14 @@ __author__ = 'palli'
 import simplejson as json
 import pynag.Model
 import pynag.Parsers
-import pynag.Control
+import adagios.daemon
 import adagios.pnp.functions
 import adagios.settings
 import time
 import adagios.status.utils
 from django.utils.translation import ugettext as _
+import socket
+
 
 class BusinessProcess(object):
 
@@ -431,6 +433,12 @@ class BusinessProcess(object):
         for i in json_data:
             if self.name == i.get('name'):
                 json_data.remove(i)
+                continue
+            # Remove this process if its referenced in other processes:
+            sub_processes = i.get('processes', [])
+            i['processes'] = [x for x in sub_processes
+                              if x['process_name'] != self.name or x['process_type'] != self.process_type]
+
         json_string = json.dumps(json_data, indent=4)
         self._write_file(json_string)
 
@@ -739,9 +747,6 @@ class Domain(Host):
 
     def create_host(self):
         """ Create a new Host object in nagios config and reload nagios  """
-        import pynag.Model
-        import pynag.Control
-        import socket
         try:
             socket.gethostbyname(self.name)
         except Exception:
@@ -755,11 +760,7 @@ class Domain(Host):
             #host.hostgroups = 'domains,nameservers,mailservers,http-servers,https-servers'
             host.save()
 
-            daemon = pynag.Control.daemon(
-                nagios_bin=adagios.settings.nagios_binary,
-                nagios_cfg=adagios.settings.nagios_config,
-                nagios_init=adagios.settings.nagios_init_script,
-            )
+            daemon = adagios.daemon.Daemon()
 
             result = daemon.reload()
             time.sleep(1)

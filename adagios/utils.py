@@ -17,18 +17,17 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import multiprocessing
 import adagios.status.utils
-import time
 import adagios
 import pynag.Model
 import adagios.exceptions
 import adagios.settings
 import os
 import pynag.Utils.misc
-
+from multiprocessing.pool import ThreadPool
 from django.utils.translation import ugettext as _
 
+SELENIUM_DRIVER = None
 
 def wait(object_type, WaitObject, WaitCondition, WaitTrigger, **kwargs):
     livestatus = adagios.status.utils.livestatus(None)
@@ -52,7 +51,6 @@ def wait_for_service(host_name, service_description, condition='last_check >= 0'
         WaitObject=waitobject
     )
 
-from multiprocessing.pool import ThreadPool
 
 
 class Task(object):
@@ -102,7 +100,7 @@ def update_eventhandlers(request):
 
 def get_available_themes():
     """ Returns a tuple with the name of themes that are available in media/theme directory """
-    theme_dir = os.path.join(adagios.settings.MEDIA_ROOT, adagios.settings.THEMES_FOLDER)
+    theme_dir = os.path.join(adagios.settings.STATIC_ROOT, adagios.settings.THEMES_FOLDER)
 
     result = []
     for root, dirs, files in os.walk(theme_dir):
@@ -110,22 +108,6 @@ def get_available_themes():
             result.append(os.path.basename(root))
 
     return result
-
-
-def reload_config_file(adagios_configfile=None):
-    """ Reloads adagios.conf and populates updates adagios.settings accordingly.
-
-    Args:
-        adagios_configfile: Full path to adagios.conf. If None then use settings.adagios_configfile
-    """
-    if not adagios_configfile:
-        adagios_configfile = adagios.settings.adagios_configfile
-
-    # Using execfile might not be optimal outside strict settings.py usage, but
-    # lets do things exactly like settings.py does it.
-    execfile(adagios_configfile)
-    config_values = locals()
-    adagios.settings.__dict__.update(config_values)
 
 
 class FakeAdagiosEnvironment(pynag.Utils.misc.FakeNagiosEnvironment):
@@ -145,7 +127,8 @@ class FakeAdagiosEnvironment(pynag.Utils.misc.FakeNagiosEnvironment):
         adagios.settings.USER_PREFS_PATH = self.adagios_config_dir + "/userdata"
         adagios.settings.nagios_config = self.cfg_file
         adagios.settings.livestatus_path = self.livestatus_socket_path
-        reload_config_file(self.adagios_config_file)
+        adagios.settings.reload_configfile(self.adagios_config_file)
+
 
     def restore_adagios_global_variables(self):
         """ Restores adagios.settings so it looks like before update_adagios_global_variables() was called
@@ -170,3 +153,17 @@ class FakeAdagiosEnvironment(pynag.Utils.misc.FakeNagiosEnvironment):
             self.restore_adagios_global_variables()
         super(FakeAdagiosEnvironment, self).terminate()
 
+def get_test_environment():
+    """Get a fake adagios environment for testing purposes.
+
+    Convenvience method for getting and starting a fake nagios environment.
+
+    Returns:
+        FakeAdagiosEnvironment instance.
+    """
+    environment = FakeAdagiosEnvironment()
+    environment.create_minimal_environment()
+    environment.update_model()
+    environment.update_adagios_global_variables()
+    environment.configure_livestatus()
+    return environment

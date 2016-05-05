@@ -34,6 +34,7 @@ ADMINS = (
 )
 
 MANAGERS = ADMINS
+STATIC_URL = "/media/"
 
 DATABASES = {
     'default': {
@@ -72,14 +73,8 @@ USE_I18N = True
 USE_L10N = True
 
 
-# Absolute filesystem path to the directory that will hold user-uploaded files.
-# Example: "/home/media/media.lawrence.com/"
-MEDIA_ROOT = "%s/media/" % (djangopath)
-
-# URL that handles the media served from MEDIA_ROOT. Make sure to use a
-# trailing slash if there is a path component (optional in other cases).
-# Examples: "http://media.lawrence.com", "http://example.com/media/"
-MEDIA_URL = 'media/'
+STATIC_URL = '/media/'
+STATIC_ROOT = '%s/media/' % djangopath
 
 # URL prefix for admin media -- CSS, JavaScript and images. Make sure to use a
 # trailing slash.
@@ -102,7 +97,7 @@ MIDDLEWARE_CLASSES = (
     #'django.contrib.messages.middleware.MessageMiddleware',
 )
 
-SESSION_ENGINE = 'django.contrib.sessions.backends.file'
+SESSION_ENGINE = 'django.contrib.sessions.backends.signed_cookies'
 
 LANGUAGES = (
     ('en', 'English'),
@@ -132,6 +127,7 @@ INSTALLED_APPS = [
     # 'django.contrib.admin',
     # Uncomment the next line to enable admin documentation:
     # 'django.contrib.admindocs',
+    #'django.contrib.staticfiles',
     'adagios.objectbrowser',
     'adagios.rest',
     'adagios.misc',
@@ -143,7 +139,7 @@ TEMPLATE_CONTEXT_PROCESSORS = ('adagios.context_processors.on_page_load',
     #"django.contrib.auth.context_processors.auth",
     "django.core.context_processors.debug",
     "django.core.context_processors.i18n",
-    "django.core.context_processors.media",
+    #"django.core.context_processors.media",
     "django.core.context_processors.static",
     "django.core.context_processors.request",
     "django.contrib.messages.context_processors.messages")
@@ -183,6 +179,26 @@ TOPMENU_ITEMS = [
 
 ]
 
+# This mapping shows how we define a service as 'unhandled'
+UNHANDLED_SERVICES = {
+    'state__isnot': 0,
+    'acknowledged': 0,
+    'scheduled_downtime_depth': 0,
+    'host_state': 0,
+    'host_scheduled_downtime_depth': 0,
+    'host_acknowledged': 0,
+}
+
+
+# This mapping shows how we define a host as 'unhandled'
+UNHANDLED_HOSTS = {
+    'state': 1,
+    'acknowledged': 0,
+    'scheduled_downtime_depth': 0
+}
+
+
+
 # Graphite #
 
 # the url where to fetch data and images
@@ -212,15 +228,23 @@ GRAPHITE_DEFAULT_TAB = 'day'
 # Anything put in /etc/adagios.d/adagios.conf will overwrite this.
 nagios_config = None  # Sensible default is "/etc/nagios/nagios.cfg"
 nagios_url = "/nagios"
-nagios_init_script = "/etc/init.d/nagios"
+# define if you are using a sysv5 init script
+nagios_init_script = None
+nagios_service = "nagios"
 nagios_binary = "/usr/bin/nagios"
 livestatus_path = None
+livestatus_limit = 500
+default_host_template = 'generic-host'
+default_service_template = 'generic-service'
+default_contact_template = 'generic-contact'
 enable_githandler = False
 enable_loghandler = False
 enable_authorization = False
 enable_status_view = True
 enable_bi = True
+enable_pnp4nagios = True
 enable_graphite = False
+enable_local_logs = True
 contrib_dir = "/var/lib/adagios/contrib/"
 serverside_includes = "/etc/adagios/ssi"
 escape_html_tags = True
@@ -255,21 +279,27 @@ PROFILE_LOG_BASE = "/var/lib/adagios"
 adagios_configfile = "/etc/adagios/adagios.conf"
 
 
-try:
-    if not os.path.exists(adagios_configfile):
-        alternative_adagios_configfile = "%s/adagios.conf" % djangopath
-        message = "Config file '{adagios_configfile}' not found. Using {alternative_adagios_configfile} instead."
-        warn(message.format(**locals()))
-        adagios_configfile = alternative_adagios_configfile
-        open(adagios_configfile, "a").close()
+def reload_configfile(adagios_configfile=None):
+    "Process adagios.conf style file and any includes; updating the settings"
+    if not adagios_configfile:
+        adagios_configfile = globals()['adagios_configfile']
+    try:
+        if not os.path.exists(adagios_configfile):
+            alternative_adagios_configfile = "%s/adagios.conf" % djangopath
+            message = "Config file '{adagios_configfile}' not found. Using {alternative_adagios_configfile} instead."
+            warn(message.format(**locals()))
+            adagios_configfile = alternative_adagios_configfile
+            open(adagios_configfile, "a").close()
 
-    execfile(adagios_configfile)
-    # if config has any default include, lets include that as well
-    configfiles = glob(include)
-    for configfile in configfiles:
-        execfile(configfile)
-except IOError, e:
-    warn('Unable to open %s: %s' % (adagios_configfile, e.strerror))
+        execfile(adagios_configfile, globals())
+        # if config has any default include, lets include that as well
+        configfiles = glob(include)
+        for configfile in configfiles:
+            execfile(configfile, globals())
+    except IOError, e:
+        warn('Unable to open %s: %s' % (adagios_configfile, e.strerror))
+
+reload_configfile()
 
 try:
     from django.utils.crypto import get_random_string
@@ -310,3 +340,6 @@ PREFS_DEFAULT = {
     'theme': THEME_DEFAULT,
     'refresh_rate': refresh_rate
 }
+
+# Allow tests to run server on multiple ports
+os.environ['DJANGO_LIVE_TEST_SERVER_ADDRESS'] = 'localhost:8000-9000'

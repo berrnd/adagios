@@ -22,15 +22,17 @@ from django import forms
 from django.core.mail import send_mail
 from django.core.validators import validate_email
 from django.core.exceptions import ValidationError
+from django.utils.encoding import smart_str
 from django.utils.translation import ugettext as _
 
 import os.path
 from adagios import settings
 import adagios.utils
-from pynag import Model, Control
+from pynag import Model
 from django.core.mail import EmailMultiAlternatives
 import pynag.Parsers
 import pynag.Control.Command
+import adagios.daemon
 
 
 TOPIC_CHOICES = (
@@ -94,6 +96,7 @@ class ContactUsForm(forms.Form):
         """) % {'topic': topic, 'sender': sender, 'message': message}
         send_mail(subject, msg, from_address, to_address, fail_silently=False)
 
+
 class UserdataForm(forms.Form):
     language = forms.ChoiceField(
         choices=settings.LANGUAGES,
@@ -118,13 +121,20 @@ class AdagiosSettingsForm(forms.Form):
         required=False, initial=settings.destination_directory, help_text=_("Where to save new objects that adagios creates."))
     nagios_url = forms.CharField(required=False, initial=settings.nagios_url,
                                  help_text=_("URL (relative or absolute) to your nagios webcgi. Adagios will use this to make it simple to navigate from a configured host/service directly to the cgi."))
+    nagios_service = forms.CharField(
+        required=False,
+        help_text=_("The name of the nagios service, commonly nagios or nagios3. Adagios will use this when stopping/starting/reloading nagios"))
     nagios_init_script = forms.CharField(
-        help_text=_("Path to you nagios init script. Adagios will use this when stopping/starting/reloading nagios"))
+        required=False,
+        help_text=_("You should define either 'Nagios service' or 'Nagios init script'. Path to you nagios init script. Adagios will use this when stopping/starting/reloading nagios"))
     nagios_binary = forms.CharField(
         help_text=_("Path to you nagios daemon binary. Adagios will use this to verify config with 'nagios -v nagios_config'"))
     livestatus_path = forms.CharField(
         help_text=_("Path to MK Livestatus socket. If left empty Adagios will try to autodiscover from your nagios.cfg"),
         required=False,
+    )
+    livestatus_limit = forms.IntegerField(
+        help_text=_("Limit the number of rows shown per page in the status view to this."),
     )
     enable_githandler = forms.BooleanField(
         required=False, initial=settings.enable_githandler, help_text=_("If set. Adagios will commit any changes it makes to git repository."))
@@ -136,6 +146,9 @@ class AdagiosSettingsForm(forms.Form):
     enable_status_view = forms.BooleanField(
         required=False, initial=settings.enable_status_view,
         help_text=_("If set. Enable status view which is an alternative to nagios legacy web interface. You will need to restart web server for the changes to take effect"))
+    enable_local_logs = forms.BooleanField(
+        required=False, initial=settings.enable_local_logs,
+        help_text=_("If set, allow adagios to read logfiles from the monitoring engine. Might be performance sensitive)"))
     auto_reload = forms.BooleanField(
         required=False, initial=settings.auto_reload,
         help_text=_("If set. Nagios is reloaded automatically after every change."))
@@ -155,10 +168,14 @@ class AdagiosSettingsForm(forms.Form):
         help_text="For pages that auto-reload. Set the number of seconds to wait between page refreshes. "
                   "Set refresh rate to 0 to disable automatic refreshing."
     )
-    enable_graphite = forms.BooleanField(required=False, help_text="If set. Include graphite graphs in status views")
+    enable_pnp4nagios = forms.BooleanField(required=False, help_text="If set, include pnp4nagios graphs in status views")
+    enable_graphite = forms.BooleanField(required=False, help_text="If set, include graphite graphs in status views")
     graphite_url = forms.CharField(help_text="Path to your graphite install.", required=False)
     graphite_querystring = forms.CharField(help_text="Querystring that is passed into graphite's /render method. {host} is replaced with respective hostname while {host_} will apply common graphite escaping. i.e. example.com -> example_com", required=False)
     graphite_title = forms.CharField(help_text="Use this title on all graphs coming from graphite", required=False)
+    default_host_template = forms.CharField(help_text="Use this template by default when adding new hosts.")
+    default_service_template = forms.CharField(help_text="Use this template by default when adding new services.")
+    default_contact_template = forms.CharField(help_text="Use this template by default when adding new contacts.")
     include = forms.CharField(
         required=False, help_text=_("Include configuration options from files matching this pattern"))
 
@@ -192,7 +209,7 @@ class AdagiosSettingsForm(forms.Form):
         filename = self.cleaned_data['nagios_init_script']
         if filename.startswith('sudo'):
             self.check_file_exists(filename.split()[1])
-        else:
+        elif filename:
             self.check_file_exists(filename)
         return filename
 
@@ -487,31 +504,31 @@ class NagiosServiceForm(forms.Form):
 
     def save(self):
         #nagios_bin = self.cleaned_data['nagios_bin']
+        daemon = adagios.daemon.Daemon()
         if "reload" in self.data:
-            command = "reload"
+            command = daemon.reload
+            self.command = "reload"
         elif "restart" in self.data:
-            command = "restart"
+            command = daemon.restart
+            self.command = "restart"
         elif "stop" in self.data:
-            command = "stop"
+            command = daemon.stop
+            self.command = "stop"
         elif "start" in self.data:
-            command = "start"
+            command = daemon.start
+            self.command = "start"
         elif "status" in self.data:
-            command = "status"
+            command = daemon.status
+            self.command = "status"
         elif "verify" in self.data:
-            command = "verify"
+            command = daemon.verify_config
+            self.command = "verify"
         else:
             raise Exception(_("Unknown command"))
-        self.command = command
-        nagios_init = settings.nagios_init_script
-        nagios_binary = settings.nagios_binary
-        nagios_config = settings.nagios_config or pynag.Model.config.cfg_file
-        if command == "verify":
-            command = "%s -v '%s'" % (nagios_binary, nagios_config)
-        else:
-            command = "%s %s" % (nagios_init, command)
-        code, stdout, stderr = pynag.Utils.runCommand(command)
-        self.stdout = stdout or ""
-        self.stderr = stderr or ""
+
+        code = command()
+        self.stdout = daemon.stdout or ""
+        self.stderr = daemon.stderr or ""
         self.exit_code = code
 
     def verify(self):
@@ -589,7 +606,7 @@ class SendEmailForm(forms.Form):
         text_content = text_content.replace('\n','<br>')
 
         # self.html_content is rendered in misc.views.mail()
-        html_content = text_content + "<p></p>" + self.html_content
+        html_content = smart_str(text_content) + "<p></p>" + smart_str(self.html_content)
         if self.cleaned_data['add_myself_to_cc']:
             cc_address.append(from_address)
         if self.cleaned_data['acknowledge_all_problems']:

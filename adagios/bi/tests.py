@@ -160,24 +160,42 @@ class TestBusinessProcess(TestCase):
         except Exception, e:
             self.assertEqual(True, "Unhandled exception while loading %s: %s" % (url, e))
 
+    def test_delete(self):
+        bp1 = BusinessProcess('bp1')
+        bp1.save()
+
+        bp2 = BusinessProcess('bp2')
+        bp2.save()
+
+        self.assertEqual(['bp1', 'bp2'], get_all_process_names())
+
+    def test_delete_recursive(self):
+        bp1 = BusinessProcess('bp1')
+        bp2 = BusinessProcess('bp2')
+        bp1.save()
+        bp2.save()
+        bp1.add_process('bp2', 'businessprocess')
+        bp1.save()
+
+        self.assertEqual(1, len(bp1.get_processes()))
+
+        bp2.delete()
+        bp1 = get_business_process('bp1')
+        self.assertFalse(bp1.get_processes())
+
 
 class TestBusinessProcessLogic(TestCase):
     """ This class responsible for testing business classes logic """
     def setUp(self):
-        self.environment = adagios.utils.FakeAdagiosEnvironment()
-        self.environment.create_minimal_environment()
-        self.environment.configure_livestatus()
-        self.environment.update_adagios_global_variables()
-        self.environment.start()
+        self.environment = adagios.utils.get_test_environment()
+        self.addCleanup(self.environment.terminate)
 
-        self.livestatus = self.environment.get_livestatus()
-        self.livestatus.test()
+        self.environment.start()
 
         fd, filename = tempfile.mkstemp()
         BusinessProcess._default_filename = filename
 
     def tearDown(self):
-        self.environment.terminate()
         os.remove(BusinessProcess._default_filename)
 
     def testBestAndWorstState(self):
@@ -218,18 +236,10 @@ class TestDomainProcess(TestCase):
     """ Test the Domain business process type
     """
     def setUp(self):
-        self.environment = adagios.utils.FakeAdagiosEnvironment()
-        self.environment.create_minimal_environment()
-        self.environment.configure_livestatus()
-        self.environment.update_adagios_global_variables()
+        self.environment = adagios.utils.get_test_environment()
+        self.addCleanup(self.environment.terminate)
+
         self.environment.start()
-
-        self.livestatus = self.environment.get_livestatus()
-        self.livestatus.test()
-
-    def tearDown(self):
-        self.environment.terminate()
-
 
     def testHost(self):
         domain = get_business_process(process_name='ok.is', process_type='domain')
@@ -242,16 +252,10 @@ class TestDomainProcess(TestCase):
 class TestServiceProcess(TestCase):
     """ Test Service Business process type """
     def setUp(self):
-        self.environment = adagios.utils.FakeAdagiosEnvironment()
-        self.environment.create_minimal_environment()
-        self.environment.configure_livestatus()
-        self.environment.update_adagios_global_variables()
-        self.environment.start()
+        self.environment = adagios.utils.get_test_environment()
+        self.addCleanup(self.environment.terminate)
 
-        self.livestatus = self.environment.get_livestatus()
-        self.livestatus.test()
-    def tearDown(self):
-        self.environment.terminate()
+        self.environment.start()
 
     def testService(self):
         service = get_business_process('ok_host/ok service 1', process_type='service')
@@ -264,28 +268,20 @@ class TestHostProcess(TestCase):
     """ Test the Host business process type
     """
     def setUp(self):
-        self.environment = adagios.utils.FakeAdagiosEnvironment()
-        self.environment.create_minimal_environment()
-        self.environment.configure_livestatus()
-        self.environment.update_adagios_global_variables()
+        self.environment = adagios.utils.get_test_environment()
+        self.addCleanup(self.environment.terminate)
+
         self.environment.start()
-
-        self.livestatus = self.environment.get_livestatus()
-        self.livestatus.test()
-
-    def tearDown(self):
-        self.environment.terminate()
 
     def testNonExistingHost(self):
         host = get_business_process('non-existant host', process_type='host')
         self.assertEqual(3, host.get_status(), _("non existant host processes should have unknown status"))
 
     def testExistingHost(self):
-        #localhost = self.livestatus.get_hosts('Filter: host_name = ok_host')
         host = get_business_process('ok_host', process_type='host')
         self.assertEqual(0, host.get_status(), _("the host ok_host should always has status ok"))
 
     def testDomainProcess(self):
-        domain = get_business_process(process_name='oksad.is', process_type='domain')
         # We don't exactly know the status of the domain, but lets run it anyway
         # for smoketesting
+        get_business_process(process_name='oksad.is', process_type='domain')

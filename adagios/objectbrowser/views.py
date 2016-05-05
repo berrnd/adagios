@@ -171,9 +171,11 @@ def edit_object(request, object_id=None):
 
     if request.method == 'POST':
         # User is posting data into our form
+        # Uncommenting the following is a good idea if you are troubleshooting
+        # A weird POST, and you want to replicate it in unit tests
+        # print request.POST.urlencode()
         c['form'] = PynagForm(
             pynag_object=my_object,
-            initial=my_object._original_attributes,
             data=request.POST
         )
         if c['form'].is_valid():
@@ -922,3 +924,15 @@ def copy_and_edit_object(request, object_id):
     return HttpResponseRedirect(reverse('edit_object', kwargs={'object_id': o.get_id()}))
 
 
+@adagios_decorator
+def import_objects(request):
+    if request.method == 'POST':
+            form = ImportObjectsForm(data=request.POST)
+            if form.is_valid():
+                duplicate_objects = form.get_duplicate_pynag_objects()
+                unique_objects = form.get_unique_pynag_objects()
+                if 'save-button' in request.POST:
+                    saved_objects = form.save()
+    else:
+        form = ImportObjectsForm(initial=request.GET)
+    return render_to_response('import_objects.html', locals(), context_instance=RequestContext(request))

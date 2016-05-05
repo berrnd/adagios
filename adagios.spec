@@ -7,7 +7,7 @@
 %define release 1
 
 Name: adagios
-Version: 1.6.0
+Version: 1.6.1
 Release: %{release}%{?dist}
 Summary: Web Based Nagios Configuration
 Group: Applications/Internet
@@ -24,8 +24,16 @@ BuildRequires: python-setuptools
 Requires: pynag >= 0.8.8
 Requires: httpd
 Requires: mod_wsgi
-Requires: Django
 Requires: sudo
+Requires: python-simplejson
+
+%if 0%{?rhel} == 6
+Requires: python-django15
+# Force django upgrade
+Conflicts: Django < 1.4.0
+%else
+Requires: python-django
+%endif
 
 %description
 Adagios is a web based Nagios configuration interface build to be simple and intuitive in design, exposing less of the clutter under the hood of nagios. 
@@ -33,7 +41,7 @@ Adagios is a web based Nagios configuration interface build to be simple and int
 %prep
 %setup -qn %{name}-%{version} -n %{name}-%{version}
 VERSION=%{version}
-echo %{release} | grep -q git && VERSION=$VERSION-%{release}
+echo %{release} | grep -q git && VERSION=$VERSION-%{release}
 sed -i "s/^__version__.*/__version__ = '$VERSION'/" adagios/__init__.py
 
 %build
@@ -41,7 +49,6 @@ python setup.py build
 
 %install
 python setup.py install -O1 --root=$RPM_BUILD_ROOT --record=INSTALLED_FILES
-#chmod a+x %{buildroot}%{python_sitelib}/adagios/manage.py
 mkdir -p %{buildroot}%{_sysconfdir}/httpd/conf.d/
 install %{buildroot}%{python_sitelib}/adagios/apache/adagios.conf %{buildroot}%{_sysconfdir}/httpd/conf.d/adagios.conf
 
@@ -1074,17 +1081,4 @@ rm -rf $RPM_BUILD_ROOT
 
 * Tue Mar 13 2012 Pall Sigurdsson <palli@opensource.is> 1.0-1
 - new package built with tito
-
-
-* Mon Aug 10 2011 Clint Savage <herlo@fedoraproject.org> 0.2-1
-- Cleaned up pathing and config files
-
-* Mon Apr 11 2011 Clint Savage <herlo@fedoraproject.org> 0.1-3
-- Added dist macro to release line.
-
-* Mon Mar 07 2011 Clint Savage <herlo@fedoraproject.org> 0.1-2
-- Fixed rpmlint errors and warnings.
-
-* Tue Feb 08 2011 Clint Savage <herlo@fedoraproject.org> 0.1-1
-- Initial package build
 
